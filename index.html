@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoevaluación de prácticas · ITM</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#fff; --ink:#1b2333; --muted:#5d6879; --line:#e2e6ee;
+    --brand:#1b4d8c; --brand2:#2f6fc4;
+    --ok:#1f8a4c; --okbg:#e7f5ec; --warn:#a86a00; --warnbg:#fff4dc; --err:#c0392b; --errbg:#fdeceb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:28px 20px 56px}
+  header .wrap{max-width:820px;margin:0 auto}
+  header h1{margin:0 0 6px;font-size:1.6rem}
+  header p{margin:0;opacity:.9}
+  main{max-width:820px;margin:-36px auto 40px;padding:0 16px}
+  .card{background:var(--card);border-radius:14px;box-shadow:0 2px 10px rgba(20,40,80,.08);padding:20px;margin-bottom:16px}
+  label{display:block;font-weight:600;margin:12px 0 4px;font-size:.95rem}
+  input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
+  input:focus,select:focus{outline:2px solid var(--brand2);border-color:transparent}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:600px){.row{grid-template-columns:1fr}}
+  .hint{color:var(--muted);font-size:.85rem;margin-top:4px}
+  button{margin-top:18px;width:100%;padding:13px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.6;cursor:wait}
+  .status{display:flex;align-items:center;gap:10px;color:var(--muted)}
+  .spin{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--brand2);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .total{display:flex;align-items:center;gap:18px}
+  .ring{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;font-size:1.6rem;font-weight:800;flex:none}
+  .ring span{background:#fff;width:76px;height:76px;border-radius:50%;display:grid;place-items:center}
+  h2{margin:0 0 8px;font-size:1.2rem}
+  h3{margin:0;font-size:1.05rem}
+  .crit{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .crit-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .pts{font-weight:800;white-space:nowrap}
+  .bar{height:6px;background:var(--line);border-radius:4px;margin:8px 0 10px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:4px}
+  ul{margin:4px 0 0;padding-left:0;list-style:none}
+  li{padding:6px 10px;border-radius:8px;margin-top:6px;font-size:.93rem}
+  li.ok{background:var(--okbg)} li.ok::before{content:"✔ ";color:var(--ok);font-weight:700}
+  li.warn{background:var(--warnbg)} li.warn::before{content:"⚠ ";color:var(--warn);font-weight:700}
+  li.err{background:var(--errbg)} li.err::before{content:"✖ ";color:var(--err);font-weight:700}
+  li.fix{background:#eef3fb} li.fix::before{content:"→ ";color:var(--brand2);font-weight:700}
+  .tag{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:10px}
+  .notice{padding:12px 14px;border-radius:10px;margin-top:12px}
+  .notice.err{background:var(--errbg)} .notice.warn{background:var(--warnbg)} .notice.ok{background:var(--okbg)}
+  details{margin-top:10px} summary{cursor:pointer;color:var(--muted)}
+  pre{white-space:pre-wrap;background:#f6f7f9;padding:10px;border-radius:8px;font-size:.85rem}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding-bottom:30px}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Autoevaluación de prácticas</h1>
+  <p>Revisa tu práctica de GitHub con la rúbrica del profesor antes de entregarla en Classroom.</p>
+</div></header>
+
+<main>
+  <form class="card" id="form">
+    <div class="row">
+      <div>
+        <label for="materia">Materia</label>
+        <select id="materia" required><option value="">Cargando…</option></select>
+      </div>
+      <div>
+        <label for="grupo">Código de grupo</label>
+        <input id="grupo" required placeholder="Lo da el profesor en clase" autocomplete="off">
+      </div>
+    </div>
+    <label for="alumno">Tu nombre</label>
+    <input id="alumno" required placeholder="Nombre y apellido">
+    <label for="url">Enlace de la carpeta de tu práctica en GitHub</label>
+    <input id="url" required placeholder="https://github.com/usuario/repositorio/tree/main/CARPETA-PRACTICA">
+    <div class="hint">Abre la carpeta de la práctica en GitHub y copia el enlace de la barra del navegador. El repositorio debe ser público.</div>
+    <button id="btn" type="submit">Evaluar mi práctica</button>
+  </form>
+
+  <div id="out"></div>
+
+  <div class="card">
+    <h3>Estructura que se revisa</h3>
+<pre>CARPETA-PRACTICA/
+├── README.md         explicación y enlaces a cada carpeta
+├── codigo/           tu código (blueprint, Arduino, SQL…)
+├── imagenes/         capturas o fotos (.png / .jpg)
+├── video/enlace.txt  enlace de YouTube
+└── resultados/       reporte en PDF</pre>
+    <div class="hint">La calificación es orientativa. La calificación final la asigna el profesor.</div>
+  </div>
+</main>
+<footer>Instituto Tecnológico de Mazatlán · Agente de autoevaluación</footer>
+
+<script>
+"use strict";
+let CONFIG = null;
+const $ = id => document.getElementById(id);
+const out = $("out");
+const IMG_EXT = ["png","jpg","jpeg","gif","webp"];
+const CODE_PREF = {
+  "SQL": ["sql","txt"],
+  "Arduino": ["ino","cpp","c","h","txt"],
+  "Blueprint": ["json","txt"],
+  "Python": ["py","txt","ipynb"]
+};
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ext = p => (p.split(".").pop() || "").toLowerCase();
+const base = p => p.split("/").pop();
+const encPath = p => p.split("/").map(encodeURIComponent).join("/");
+
+/* ---------- carga de configuración ---------- */
+async function loadConfig(){
+  try{
+    const r = await fetch("materias.json?v=" + Date.now());
+    CONFIG = await r.json();
+    const sel = $("materia");
+    sel.innerHTML = '<option value="">Elige tu materia</option>' +
+      Object.keys(CONFIG.materias).map(m => `<option>${esc(m)}</option>`).join("");
+  }catch(e){
+    $("materia").innerHTML = '<option value="">Error al cargar materias.json</option>';
+  }
+  try{ $("grupo").value = localStorage.getItem("grupo") || ""; $("alumno").value = localStorage.getItem("alumno") || ""; }catch(e){}
+}
+
+/* ---------- GitHub ---------- */
+function parseUrl(u){
+  u = u.trim().replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const m = u.match(/^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/]+)(?:\/(?:tree|blob)\/([^/]+)(?:\/(.*))?)?$/i);
+  if(!m) return null;
+  return { owner:m[1], repo:m[2].replace(/\.git$/,""), branch:m[3] || null, path: m[4] ? decodeURIComponent(m[4]) : "" };
+}
+
+async function gh(url){
+  const r = await fetch(url, {headers:{Accept:"application/vnd.github+json"}});
+  if(r.status === 403 || r.status === 429){
+    throw new Error("GitHub limitó las consultas desde esta red (60 por hora). Espera unos minutos o intenta desde otra red, como los datos del celular.");
+  }
+  if(r.status === 404) throw new Error("No se encontró el repositorio o la rama. Revisa que el enlace sea correcto y que el repositorio sea público.");
+  if(!r.ok) throw new Error("Error al consultar GitHub (" + r.status + ").");
+  return r.json();
+}
+
+async function raw(info, path){
+  const r = await fetch(`https://raw.githubusercontent.com/${info.owner}/${info.repo}/${encodeURIComponent(info.branch)}/${encPath(path)}`);
+  if(!r.ok) throw new Error("No se pudo leer " + path);
+  return r.text();
+}
+
+/* ---------- revisión automática ---------- */
+async function revisar(info, materia){
+  if(!info.branch){
+    const repo = await gh(`https://api.github.com/repos/${info.owner}/${info.repo}`);
+    info.branch = repo.default_branch;
+  }
+  const tree = await gh(`https://api.github.com/repos/${info.owner}/${info.repo}/git/trees/${encodeURIComponent(info.branch)}?recursive=1`);
+  const prefix = info.path ? info.path.replace(/\/+$/,"") + "/" : "";
+  const files = tree.tree.filter(t => t.type === "blob" && t.path.startsWith(prefix))
+                          .map(t => ({ path:t.path, rel:t.path.slice(prefix.length), size:t.size }));
+  if(!files.length) throw new Error("La carpeta está vacía o no existe en la rama " + info.branch + ".");
+
+  const inDir = name => files.filter(f => f.rel.toLowerCase().startsWith(name + "/"));
+  const isReadme = f => /^readme(\.(md|txt))?$/i.test(base(f.rel));
+  const R = { README:[], "Código":[], "Imágenes":[], Video:[], Resultados:[] };
+  const send = { };
+  let bloqueos = 0;
+  const add = (c, tipo, msg) => { R[c].push({tipo, msg}); if(tipo === "err") bloqueos++; };
+
+  /* README */
+  const readme = files.find(f => !f.rel.includes("/") && /^readme\.md$/i.test(f.rel));
+  let readmeTxt = "";
+  if(!readme){
+    add("README","err","No hay README.md en la carpeta de la práctica.");
+  }else{
+    readmeTxt = await raw(info, readme.path);
+    send.readme = readme.path;
+    if(readme.rel !== "README.md") add("README","warn",`El archivo se llama "${readme.rel}"; lo correcto es "README.md".`);
+    if(readmeTxt.trim().length < 200) add("README","err","El README está prácticamente vacío.");
+    else add("README","ok","README encontrado.");
+    const links = [...readmeTxt.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<img[^>]+src=["']([^"']+)["']/gi)].map(m => m[1] || m[2]);
+    const rel = links.filter(l => !/^(https?:|mailto:|#)/i.test(l));
+    const known = new Set(files.map(f => f.rel.toLowerCase()));
+    const dirs = new Set(files.flatMap(f => { const p = f.rel.toLowerCase().split("/"); return p.slice(0,-1).map((_,i)=>p.slice(0,i+1).join("/")); }));
+    const rotos = rel.filter(l => { let t; try{ t = decodeURIComponent(l); }catch(e){ t = l; } t = t.replace(/^\.\//,"").replace(/\/$/,"").toLowerCase(); return !known.has(t) && !dirs.has(t); });
+    if(rotos.length) add("README","warn","Enlaces que no llevan a ningún archivo de la carpeta: " + rotos.join(", "));
+    for(const d of ["codigo","imagenes","video","resultados"]){
+      if(!rel.some(l => l.replace(/^\.\//,"").toLowerCase().startsWith(d))) add("README","warn",`El README no tiene un enlace a la carpeta ${d}/.`);
+    }
+    if(/\[?\s*(completar|pendiente|todo|lorem ipsum)\s*[:\]]/i.test(readmeTxt)) add("README","err","El README tiene texto pendiente por completar.");
+    const heads = (readmeTxt.match(/^#{1,3}\s+\S/gm) || []).length;
+    if(heads < 4) add("README","warn","El README tiene pocas secciones (objetivo, materiales, desarrollo, conclusiones…).");
+  }
+
+  /* Código */
+  const tipo = CONFIG.materias[materia]?.codigo || "Cualquiera";
+  const codeFiles = inDir("codigo").filter(f => !isReadme(f) && f.size > 0);
+  if(!codeFiles.length){
+    add("Código","err","No hay archivo de código dentro de codigo/.");
+  }else{
+    const pref = CODE_PREF[tipo] || [];
+    codeFiles.sort((a,b) => { const pa = pref.indexOf(ext(a.rel)), pb = pref.indexOf(ext(b.rel)); return (pa<0?99:pa) - (pb<0?99:pb) || b.size - a.size; });
+    const cf = codeFiles[0];
+    send.codigo = cf.path;
+    const txt = await raw(info, cf.path);
+    add("Código","ok",`Archivo de código: ${cf.rel}`);
+    let parece = true;
+    if(tipo === "SQL") parece = /\b(create|select|insert|update|delete|alter|drop|grant)\b/i.test(txt);
+    else if(tipo === "Arduino") parece = /void\s+setup\s*\(/.test(txt) && /void\s+loop\s*\(/.test(txt);
+    else if(tipo === "Python") parece = /\b(def|import|print)\b/.test(txt);
+    else if(tipo === "Blueprint"){
+      try{ const j = JSON.parse(txt); parece = Array.isArray(j.flow); if(parece) add("Código","ok",`Blueprint válido con ${j.flow.length} módulos.`); }
+      catch(e){ add("Código","err","El blueprint no es un JSON válido."); parece = true; }
+    }
+    if(!parece) add("Código","err",`El archivo no parece código ${tipo}.`);
+  }
+
+  /* Imágenes */
+  const imgs = inDir("imagenes").filter(f => IMG_EXT.includes(ext(f.rel)) && f.size > 0);
+  const heic = inDir("imagenes").filter(f => ["heic","heif"].includes(ext(f.rel)));
+  if(!inDir("imagenes").length) add("Imágenes","err","No existe la carpeta imagenes/ o está vacía.");
+  else if(!imgs.length) add("Imágenes","err", heic.length ? "Las imágenes están en HEIC; conviértelas a .jpg o .png." : "No hay imágenes .png o .jpg en imagenes/.");
+  else{
+    imgs.sort((a,b) => b.size - a.size);
+    send.imagen = imgs[0].path;
+    add("Imágenes","ok",`${imgs.length} imagen(es) encontrada(s).`);
+    if(heic.length) add("Imágenes","warn","Hay archivos HEIC que no se ven en el navegador.");
+  }
+
+  /* Video */
+  const yt = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?[^\s)"'<>]*v=|shorts\/|live\/)|youtu\.be\/)[\w-]{6,}[^\s)"'<>]*/i;
+  const vtxt = inDir("video").filter(f => ext(f.rel) === "txt");
+  let vurl = null, vfile = null;
+  for(const f of vtxt){ const t = await raw(info, f.path); const m = t.match(yt); if(m){ vurl = m[0]; vfile = f; break; } }
+  if(vurl){
+    send.video = vurl;
+    add("Video","ok","Enlace de YouTube encontrado.");
+    if(vfile.rel !== "video/enlace.txt") add("Video","warn",`El enlace está en "${vfile.rel}"; el nombre esperado es "video/enlace.txt".`);
+  }else{
+    const m = readmeTxt.match(yt);
+    if(m){ send.video = m[0]; add("Video","warn","El enlace de YouTube solo está en el README; agrégalo también en video/enlace.txt."); }
+    else add("Video","err","No hay enlace de YouTube en video/enlace.txt.");
+  }
+
+  /* Resultados */
+  const pdfs = inDir("resultados").filter(f => ext(f.rel) === "pdf" && f.size > 0);
+  if(!pdfs.length) add("Resultados","err","No hay un PDF en resultados/.");
+  else{
+    pdfs.sort((a,b) => b.size - a.size);
+    send.pdf = pdfs[0].path;
+    add("Resultados","ok",`Reporte PDF: ${pdfs[0].rel}`);
+    if(pdfs.length > 1) add("Resultados","warn","Hay más de un PDF; se evalúa el más grande. Deja solo la versión final.");
+  }
+
+  return { R, send, bloqueos, tipo };
+}
+
+/* ---------- pintar resultados ---------- */
+function color(p){ return p >= .85 ? "var(--ok)" : p >= .6 ? "var(--warn)" : "var(--err)"; }
+
+function render(rev, ia){
+  const crits = Object.keys(CONFIG.rubrica);
+  const iaMap = {};
+  if(ia && Array.isArray(ia.criterios)) for(const c of ia.criterios) iaMap[(c.nombre||"").toLowerCase()] = c;
+  let total = ia && typeof ia.total === "number" ? ia.total : null;
+  let html = "";
+  if(total !== null){
+    const max = crits.reduce((s,c) => s + CONFIG.rubrica[c], 0);
+    const p = total / max;
+    html += `<div class="card"><div class="total">
+      <div class="ring" style="background:conic-gradient(${color(p)} ${p*360}deg,var(--line) 0)"><span>${esc(total)}</span></div>
+      <div><h2>Calificación estimada: ${esc(total)} / ${max}</h2><div>${esc(ia.resumen || "")}</div></div>
+    </div></div>`;
+  }
+  html += `<div class="card"><h2>${total !== null ? "Detalle por criterio" : "Revisión automática"}</h2>`;
+  for(const c of crits){
+    const max = CONFIG.rubrica[c];
+    const k = iaMap[c.toLowerCase()] || iaMap[c.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")];
+    const pts = k && typeof k.puntos === "number" ? k.puntos : null;
+    html += `<div class="crit"><div class="crit-head"><h3>${esc(c)}</h3>${pts !== null ? `<span class="pts" style="color:${color(pts/max)}">${pts} / ${max}</span>` : ""}</div>`;
+    if(pts !== null) html += `<div class="bar"><i style="width:${pts/max*100}%;background:${color(pts/max)}"></i></div>`;
+    html += `<div class="tag">Revisión automática</div><ul>${rev.R[c].map(x => `<li class="${x.tipo}">${esc(x.msg)}</li>`).join("") || '<li class="ok">Sin observaciones.</li>'}</ul>`;
+    if(k){
+      if(k.bien?.length) html += `<div class="tag">Bien hecho</div><ul>${k.bien.map(x => `<li class="ok">${esc(x)}</li>`).join("")}</ul>`;
+      if(k.corregir?.length) html += `<div class="tag">Qué corregir</div><ul>${k.corregir.map(x => `<li class="fix">${esc(x)}</li>`).join("")}</ul>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+  out.innerHTML = html;
+}
+
+function parseIA(text){
+  let t = String(text).trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if(a < 0 || b < a) return null;
+  try{ return JSON.parse(t.slice(a, b + 1)); }catch(e){ return null; }
+}
+
+/* ---------- flujo principal ---------- */
+$("form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const btn = $("btn");
+  const materia = $("materia").value;
+  const info = parseUrl($("url").value);
+  if(!info){ out.innerHTML = `<div class="card notice err">El enlace no parece de GitHub. Debe verse como <code>https://github.com/usuario/repositorio/tree/main/CARPETA</code>.</div>`; return; }
+  try{ localStorage.setItem("grupo", $("grupo").value.trim()); localStorage.setItem("alumno", $("alumno").value.trim()); }catch(e){}
+  btn.disabled = true;
+  out.innerHTML = `<div class="card status"><div class="spin"></div>Revisando la estructura de tu carpeta…</div>`;
+  let rev;
+  try{
+    rev = await revisar(info, materia);
+  }catch(e){
+    out.innerHTML = `<div class="card notice err">${esc(e.message)}</div>`;
+    btn.disabled = false; return;
+  }
+  if(rev.bloqueos){
+    render(rev, null);
+    out.insertAdjacentHTML("afterbegin", `<div class="card notice err"><b>Faltan elementos obligatorios.</b> Corrige los puntos marcados con ✖ y vuelve a evaluar. La evaluación con IA se hace cuando la estructura está completa.</div>`);
+    btn.disabled = false; return;
+  }
+  render(rev, null);
+  out.insertAdjacentHTML("afterbegin", `<div class="card status" id="wait"><div class="spin"></div>La estructura está completa. El agente está evaluando tu trabajo; puede tardar hasta un minuto…</div>`);
+
+  if(!CONFIG.webhook || !/^https:\/\//.test(CONFIG.webhook)){
+    $("wait").outerHTML = `<div class="card notice warn">La evaluación con IA aún no está configurada (falta el webhook en materias.json).</div>`;
+    btn.disabled = false; return;
+  }
+  const body = new URLSearchParams({
+    grupo: $("grupo").value.trim(), alumno: $("alumno").value.trim(), materia, tipo: rev.tipo,
+    owner: info.owner, repo: info.repo, branch: info.branch, carpeta: info.path,
+    readme: encPath(rev.send.readme), codigo: encPath(rev.send.codigo), imagen: encPath(rev.send.imagen), pdf: encPath(rev.send.pdf),
+    video: rev.send.video || "",
+    revision: Object.entries(rev.R).map(([c, xs]) => c + ": " + xs.map(x => (x.tipo === "ok" ? "[OK] " : x.tipo === "warn" ? "[AVISO] " : "[ERROR] ") + x.msg).join(" | ")).join("\n")
+  });
+  try{
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 170000);
+    const r = await fetch(CONFIG.webhook, { method:"POST", body, signal: ctrl.signal });
+    clearTimeout(to);
+    const text = await r.text();
+    const ia = parseIA(text);
+    if(!ia){
+      render(rev, null);
+      out.insertAdjacentHTML("afterbegin", `<div class="card notice err">No se recibió la evaluación del agente. Revisa que el código de grupo sea correcto e intenta de nuevo.<details><summary>Respuesta recibida</summary><pre>${esc(text.slice(0, 1500))}</pre></details></div>`);
+    }else{
+      render(rev, ia);
+    }
+  }catch(e){
+    render(rev, null);
+    out.insertAdjacentHTML("afterbegin", `<div class="card notice err">${e.name === "AbortError" ? "El agente tardó demasiado en responder." : "No se pudo conectar con el agente."} Intenta de nuevo en unos minutos.</div>`);
+  }
+  btn.disabled = false;
+});
+
+loadConfig();
+</script>
+</body>
+</html>
