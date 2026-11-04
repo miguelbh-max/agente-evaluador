@@ -269,9 +269,14 @@ function render(rev, ia){
   if(total !== null){
     const max = crits.reduce((s,c) => s + CONFIG.rubrica[c], 0);
     const p = total / max;
+    const minimo = Number(CONFIG.aprobatorio) || 70;
+    const aprueba = total >= minimo;
+    const colorTotal = aprueba ? (p >= .85 ? "var(--ok)" : "var(--warn)") : "var(--err)";
     html += `<div class="card"><div class="total">
-      <div class="ring" style="background:conic-gradient(${color(p)} ${p*360}deg,var(--line) 0)"><span>${esc(total)}</span></div>
-      <div><h2>Calificación estimada: ${esc(total)} / ${max}</h2><div>${esc(ia.resumen || "")}</div></div>
+      <div class="ring" style="background:conic-gradient(${colorTotal} ${p*360}deg,var(--line) 0)"><span>${esc(total)}</span></div>
+      <div><h2>Calificación estimada: ${esc(total)} / ${max}</h2>
+        <div class="notice ${aprueba ? "ok" : "err"}" style="margin:6px 0 8px;padding:8px 12px"><b>${aprueba ? "✔ Aprobatoria" : "✖ No aprobatoria"}</b> · mínimo aprobatorio: ${minimo}</div>
+        <div>${esc(ia.resumen || "")}</div></div>
     </div></div>`;
   }
   html += `<div class="card"><h2>${total !== null ? "Detalle por criterio" : "Revisión automática"}</h2>`;
