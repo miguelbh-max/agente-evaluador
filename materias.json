@@ -1,0 +1,24 @@
+{
+  "webhook": "PEGA_AQUI_LA_URL_DEL_WEBHOOK_DE_MAKE",
+  "rubrica": {
+    "README": 20,
+    "Código": 20,
+    "Imágenes": 20,
+    "Video": 20,
+    "Resultados": 20
+  },
+  "materias": {
+    "Bases de Datos": {
+      "codigo": "SQL",
+      "notas": ""
+    },
+    "Administración de Bases de Datos": {
+      "codigo": "SQL",
+      "notas": "Puede incluir scripts de respaldo, usuarios, roles y permisos."
+    },
+    "Automatización e Integración de Control Inteligente": {
+      "codigo": "Arduino",
+      "notas": ""
+    }
+  }
+}
