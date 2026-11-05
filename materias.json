@@ -1,7 +1,7 @@
 {
   "webhook": "https://hook.us2.make.com/uxscvtngsmbrlmyyxd5u3oa5f2sa4lkr",
  "aprobatorio": 70,
-  "  "intentosPorPractica": 50,
+  "intentosPorPractica": 50,
   
   "rubrica": {
     "README": 20,
