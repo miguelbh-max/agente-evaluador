@@ -63,6 +63,8 @@
     "Automatización e Integración de Control Inteligente": {
       "codigo": "Arduino",
       "notas": ""
-    }
+    },
+"Desarrollo Sustentable": { "codigo": "Blueprint", "notas": "" }
+    
     }
 }
