@@ -72,8 +72,9 @@
         <input id="grupo" required placeholder="Lo da el profesor en clase" autocomplete="off">
       </div>
     </div>
-    <label for="alumno">Tu nombre</label>
-    <input id="alumno" required placeholder="Nombre y apellido">
+    <label for="alumno">Nombre completo</label>
+    <input id="alumno" required placeholder="Nombre(s) y apellidos, como aparecen en Classroom">
+    <div class="hint">Escríbelo siempre igual: así el profesor recibe tu calificación.</div>
     <label for="url">Enlace de la carpeta de tu práctica en GitHub</label>
     <input id="url" required placeholder="https://github.com/usuario/repositorio/tree/main/CARPETA-PRACTICA">
     <div class="hint">Abre la carpeta de la práctica en GitHub y copia el enlace de la barra del navegador. El repositorio debe ser público.</div>
@@ -367,6 +368,10 @@ function render(rev, ia){
   }
   html += `</div>`;
   out.innerHTML = html;
+  if(total === null) return null;
+  const puntos = {};
+  for(const c of crits){ const k = iaMap[c.toLowerCase()] || iaMap[c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")]; puntos[c] = k ? k.puntos : null; }
+  return { total, puntos, aprueba: total >= (Number(CONFIG.aprobatorio) || 70) };
 }
 
 function parseIA(text){
@@ -382,6 +387,7 @@ $("form").addEventListener("submit", async ev => {
   const btn = $("btn");
   const materia = $("materia").value;
   const info = parseUrl($("url").value);
+  if($("alumno").value.trim().split(/\s+/).length < 3){ out.innerHTML = `<div class="card notice err">Escribe tu nombre completo: nombre(s) y apellidos.</div>`; return; }
   if(!info){ out.innerHTML = `<div class="card notice err">El enlace no parece de GitHub. Debe verse como <code>https://github.com/usuario/repositorio/tree/main/CARPETA</code>.</div>`; return; }
   try{ localStorage.setItem("grupo", $("grupo").value.trim()); localStorage.setItem("alumno", $("alumno").value.trim()); }catch(e){}
   btn.disabled = true;
@@ -441,7 +447,13 @@ $("form").addEventListener("submit", async ev => {
       out.insertAdjacentHTML("afterbegin", `<div class="card notice err">No se recibió la evaluación del agente. Revisa que el código de grupo sea correcto e intenta de nuevo.<details><summary>Respuesta recibida</summary><pre>${esc(text.slice(0, 1500))}</pre></details></div>`);
     }else{
       try{ localStorage.setItem(clave, String(usados + 1)); }catch(e){}
-      render(rev, ia);
+      const final = render(rev, ia);
+      /* registro para el profesor (Google Sheets vía Apps Script) */
+      if(final && CONFIG.registro && /^https:\/\//.test(CONFIG.registro)){
+        fetch(CONFIG.registro, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+          body: JSON.stringify({ alumno: $("alumno").value.trim(), owner: info.owner, materia, practica: info.path.split("/").pop() || info.repo,
+            enlace: `https://github.com/${info.owner}/${info.repo}/tree/${info.branch}/${info.path}`, intento: usados + 1, ...final }) }).catch(() => {});
+      }
       const quedan = limite - usados - 1;
       out.insertAdjacentHTML("beforeend", `<div class="card hint">${quedan <= 0 ? "Ya usaste todas tus evaluaciones con IA para esta práctica." : quedan === 1 ? "Te queda 1 evaluación con IA para esta práctica." : "Te quedan " + quedan + " evaluaciones con IA para esta práctica."}</div>`);
     }
