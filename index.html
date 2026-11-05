@@ -192,7 +192,7 @@ async function revisar(info, materia){
   const tree = await gh(`https://api.github.com/repos/${info.owner}/${info.repo}/git/trees/${encodeURIComponent(info.branch)}?recursive=1`);
   const prefix = info.path ? info.path.replace(/\/+$/,"") + "/" : "";
   const files = tree.tree.filter(t => t.type === "blob" && t.path.startsWith(prefix))
-                          .map(t => ({ path:t.path, rel:t.path.slice(prefix.length), size:t.size }));
+                          .map(t => ({ path:t.path, rel:t.path.slice(prefix.length), size:t.size, sha:t.sha }));
   if(!files.length) throw new Error("La carpeta está vacía o no existe en la rama " + info.branch + ".");
 
   const inDir = name => files.filter(f => f.rel.toLowerCase().startsWith(name + "/"));
@@ -297,7 +297,8 @@ async function revisar(info, materia){
     }catch(e){ add("Resultados","warn","No se pudo leer el texto del PDF desde la página."); }
   }
 
-  return { R, send, bloqueos, tipo, pdfPendientes, pdfTxt, readmeTxt };
+  const huella = files.map(f => f.path + ":" + f.sha).sort().join("|");
+  return { R, send, bloqueos, tipo, pdfPendientes, pdfTxt, readmeTxt, huella };
 }
 
 /* ---------- pintar resultados ---------- */
@@ -317,11 +318,23 @@ function render(rev, ia){
       const k = iaMap[c.toLowerCase()] || iaMap[c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")];
       if(!k){ continue; }
       let pts = Math.max(0, Math.min(max, Math.round(Number(k.puntos) || 0)));
+      const lista = (CONFIG.listas || {})[c];
+      let porLista = false;
+      if(Array.isArray(lista) && Array.isArray(k.lista)){
+        const resp = {};
+        for(const x of k.lista) resp[String(x.id || "").toLowerCase()] = x;
+        k.listaRender = lista.map(it => {
+          const r = resp[String(it.id).toLowerCase()] || {};
+          return { texto: it.texto, puntos: it.puntos, cumple: r.cumple === true, motivo: r.motivo || "" };
+        });
+        pts = Math.min(max, k.listaRender.reduce((a, it) => a + (it.cumple ? it.puntos : 0), 0));
+        porLista = true;
+      }
       const orig = pts;
       const avisos = rev.R[c].filter(x => x.tipo === "warn").length;
       pts = Math.min(pts, max - 2 * avisos);
       if(c === "Resultados" && rev.pdfPendientes) pts = Math.min(pts, Math.round(max / 2));
-      if(!SOLO_EXISTE.includes(c) && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
+      if(!porLista && !SOLO_EXISTE.includes(c) && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
       /* Código, Imágenes y Video: si existen y la revisión automática está en verde, valen el máximo.
          Lo que diga la IA se muestra como sugerencia y no resta. */
       if(SOLO_EXISTE.includes(c)){
@@ -360,6 +373,7 @@ function render(rev, ia){
     if(pts !== null) html += `<div class="bar"><i style="width:${pts/max*100}%;background:${color(pts/max)}"></i></div>`;
     html += `<div class="tag">Revisión automática</div><ul>${rev.R[c].map(x => `<li class="${x.tipo}">${esc(x.msg)}</li>`).join("") || '<li class="ok">Sin observaciones.</li>'}</ul>`;
     if(k){
+      if(k.listaRender?.length) html += `<div class="tag">Lista de verificación</div><ul>${k.listaRender.map(it => `<li class="${it.cumple ? "ok" : "err"}">${esc(it.texto)} (${it.cumple ? it.puntos : 0}/${it.puntos})${!it.cumple && it.motivo ? `: <i>${esc(it.motivo)}</i>` : ""}</li>`).join("")}</ul>`;
       if(k.bien?.length) html += `<div class="tag">Bien hecho</div><ul>${k.bien.map(x => `<li class="ok">${esc(x)}</li>`).join("")}</ul>`;
       if(k.corregir?.length) html += `<div class="tag">Qué corregir</div><ul>${k.corregir.map(x => `<li class="fix">${esc(x)}</li>`).join("")}</ul>`;
       if(k.sugerencias?.length) html += `<div class="tag">Sugerencias (no restan puntos)</div><ul>${k.sugerencias.map(x => `<li class="fix">${esc(x)}</li>`).join("")}</ul>`;
@@ -414,6 +428,15 @@ $("form").addEventListener("submit", async ev => {
   /* límite de evaluaciones con IA por práctica (se guarda en este navegador) */
   const limite = Number(CONFIG.intentosPorPractica || CONFIG.intentosPorDia) || 2;
   const clave = "intentos:" + [info.owner, info.repo, info.path].join("/").toLowerCase();
+  const claveUltima = "ultima:" + [info.owner, info.repo, info.path].join("/").toLowerCase();
+  /* si no cambió nada desde la última evaluación, se muestra la misma y no se gasta un intento */
+  let ultima = null;
+  try{ ultima = JSON.parse(localStorage.getItem(claveUltima) || "null"); }catch(e){}
+  if(ultima && ultima.huella === rev.huella && parseIA(ultima.texto)){
+    render(rev, parseIA(ultima.texto));
+    out.insertAdjacentHTML("afterbegin", `<div class="card notice warn"><b>No has hecho cambios desde tu última evaluación.</b> Esta es la misma calificación. Corrige lo que se te indicó, sube los cambios a GitHub y vuelve a evaluar. No se usó ninguna evaluación con IA.</div>`);
+    btn.disabled = false; return;
+  }
   let usados = 0;
   try{ usados = Number(localStorage.getItem(clave)) || 0; }catch(e){}
   if(usados >= limite){
@@ -446,7 +469,7 @@ $("form").addEventListener("submit", async ev => {
       render(rev, null);
       out.insertAdjacentHTML("afterbegin", `<div class="card notice err">No se recibió la evaluación del agente. Revisa que el código de grupo sea correcto e intenta de nuevo.<details><summary>Respuesta recibida</summary><pre>${esc(text.slice(0, 1500))}</pre></details></div>`);
     }else{
-      try{ localStorage.setItem(clave, String(usados + 1)); }catch(e){}
+      try{ localStorage.setItem(clave, String(usados + 1)); localStorage.setItem(claveUltima, JSON.stringify({ huella: rev.huella, texto: text })); }catch(e){}
       const final = render(rev, ia);
       /* registro para el profesor (Google Sheets vía Apps Script) */
       if(final && CONFIG.registro && /^https:\/\//.test(CONFIG.registro)){

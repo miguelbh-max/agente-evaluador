@@ -1,15 +1,55 @@
 {
   "webhook": "https://hook.us2.make.com/uxscvtngsmbrlmyyxd5u3oa5f2sa4lkr",
   "registro": "https://script.google.com/macros/s/AKfycbyiTi0-PpEWmqkSPgTLkICLpdOZJAqB92W3VG35saA7n1Neykl4OUuo2VcY_x27Xj_f/exec",
- "aprobatorio": 70,
+  "aprobatorio": 70,
   "intentosPorPractica": 2,
-  
   "rubrica": {
     "README": 20,
     "Código": 20,
     "Imágenes": 20,
     "Video": 20,
     "Resultados": 20
+  },
+  "listas": {
+    "README": [
+      {
+        "id": "objetivo",
+        "texto": "Objetivo completo y claro",
+        "puntos": 5
+      },
+      {
+        "id": "materiales",
+        "texto": "Materiales o herramientas utilizados",
+        "puntos": 5
+      },
+      {
+        "id": "desarrollo",
+        "texto": "Explica el desarrollo o los pasos",
+        "puntos": 5
+      },
+      {
+        "id": "conclusiones",
+        "texto": "Conclusiones propias sobre la práctica",
+        "puntos": 5
+      }
+    ],
+    "Resultados": [
+      {
+        "id": "terminado",
+        "texto": "PDF terminado, sin partes por llenar",
+        "puntos": 8
+      },
+      {
+        "id": "aprendizaje",
+        "texto": "Explica lo aprendido",
+        "puntos": 6
+      },
+      {
+        "id": "evidencia",
+        "texto": "Incluye resultados de las pruebas",
+        "puntos": 6
+      }
+    ]
   },
   "materias": {
     "Bases de Datos": {
@@ -24,9 +64,9 @@
       "codigo": "Arduino",
       "notas": ""
     },
-"Desarrollo Sustentable": { "codigo": "Blueprint", "notas": "" }
-
-
-    
+    "Desarrollo Sustentable": {
+      "codigo": "Blueprint",
+      "notas": ""
+    }
   }
 }
