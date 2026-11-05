@@ -330,7 +330,7 @@ function render(rev, ia){
         if(ok && c === "Video") k.sugerencias = [];
       }
       pts = Math.max(0, pts);
-      if(pts !== orig) ajustes[c] = orig;
+      if(pts !== orig && !SOLO_EXISTE.includes(c)) ajustes[c] = orig;
       k.puntos = pts;
       total += pts;
     }
