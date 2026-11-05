@@ -88,7 +88,7 @@
 ├── README.md         explicación y enlaces a cada carpeta
 ├── codigo/           tu código (blueprint, Arduino, SQL…)
 ├── imagenes/         capturas o fotos (.png / .jpg)
-├── video/enlace.txt  enlace de YouTube
+├── video/           .txt con el enlace de YouTube
 └── resultados/       reporte en PDF</pre>
     <div class="hint">La calificación es orientativa. La calificación final la asigna el profesor.</div>
   </div>
@@ -150,6 +150,21 @@ async function raw(info, path){
   return r.text();
 }
 
+const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/";
+async function pdfTexto(info, path){
+  const lib = await import(PDFJS + "pdf.min.mjs");
+  lib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
+  const r = await fetch(`https://raw.githubusercontent.com/${info.owner}/${info.repo}/${encodeURIComponent(info.branch)}/${encPath(path)}`);
+  if(!r.ok) throw new Error("pdf");
+  const doc = await lib.getDocument({ data: await r.arrayBuffer() }).promise;
+  let t = "";
+  for(let i = 1; i <= Math.min(doc.numPages, 20); i++){
+    const c = await (await doc.getPage(i)).getTextContent();
+    t += c.items.map(x => x.str).join(" ") + "\n";
+  }
+  return t;
+}
+
 /* ---------- revisión automática ---------- */
 async function revisar(info, materia){
   if(!info.branch){
@@ -166,6 +181,7 @@ async function revisar(info, materia){
   const isReadme = f => /^readme(\.(md|txt))?$/i.test(base(f.rel));
   const R = { README:[], "Código":[], "Imágenes":[], Video:[], Resultados:[] };
   const send = { };
+  let pdfPendientes = 0, pdfTxt = "";
   let bloqueos = 0;
   const add = (c, tipo, msg) => { R[c].push({tipo, msg}); if(tipo === "err") bloqueos++; };
 
@@ -177,7 +193,6 @@ async function revisar(info, materia){
   }else{
     readmeTxt = await raw(info, readme.path);
     send.readme = readme.path;
-    if(readme.rel !== "README.md") add("README","warn",`El archivo se llama "${readme.rel}"; lo correcto es "README.md".`);
     if(readmeTxt.trim().length < 200) add("README","err","El README está prácticamente vacío.");
     else add("README","ok","README encontrado.");
     const links = [...readmeTxt.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)|<img[^>]+src=["']([^"']+)["']/gi)].map(m => m[1] || m[2]);
@@ -236,12 +251,11 @@ async function revisar(info, materia){
   for(const f of vtxt){ const t = await raw(info, f.path); const m = t.match(yt); if(m){ vurl = m[0]; vfile = f; break; } }
   if(vurl){
     send.video = vurl;
-    add("Video","ok","Enlace de YouTube encontrado.");
-    if(vfile.rel !== "video/enlace.txt") add("Video","warn",`El enlace está en "${vfile.rel}"; el nombre esperado es "video/enlace.txt".`);
+    add("Video","ok",`Enlace de YouTube válido en ${vfile.rel}.`);
   }else{
     const m = readmeTxt.match(yt);
-    if(m){ send.video = m[0]; add("Video","warn","El enlace de YouTube solo está en el README; agrégalo también en video/enlace.txt."); }
-    else add("Video","err","No hay enlace de YouTube en video/enlace.txt.");
+    if(m){ send.video = m[0]; add("Video","warn","El enlace de YouTube solo está en el README; agrégalo también en un archivo .txt dentro de video/."); }
+    else add("Video","err","No hay un enlace de YouTube en ningún .txt dentro de video/.");
   }
 
   /* Resultados */
@@ -252,9 +266,16 @@ async function revisar(info, materia){
     send.pdf = pdfs[0].path;
     add("Resultados","ok",`Reporte PDF: ${pdfs[0].rel}`);
     if(pdfs.length > 1) add("Resultados","warn","Hay más de un PDF; se evalúa el más grande. Deja solo la versión final.");
+    try{
+      pdfTxt = await pdfTexto(info, pdfs[0].path);
+      const pend = pdfTxt.match(/\[\s*(completar|pendiente|llenar)[^\]]*\]|_{4,}|\blorem ipsum\b/gi) || [];
+      pdfPendientes = pend.length;
+      if(pdfPendientes) add("Resultados","warn",`El PDF tiene ${pdfPendientes} parte(s) sin terminar ([COMPLETAR], espacios en blanco ____ o texto de relleno).`);
+      if(pdfTxt.replace(/\s+/g,"").length < 300) add("Resultados","warn","El PDF casi no tiene texto (¿es una imagen escaneada?). Exporta tu reporte como PDF con texto.");
+    }catch(e){ add("Resultados","warn","No se pudo leer el texto del PDF desde la página."); }
   }
 
-  return { R, send, bloqueos, tipo };
+  return { R, send, bloqueos, tipo, pdfPendientes, pdfTxt };
 }
 
 /* ---------- pintar resultados ---------- */
@@ -264,7 +285,27 @@ function render(rev, ia){
   const crits = Object.keys(CONFIG.rubrica);
   const iaMap = {};
   if(ia && Array.isArray(ia.criterios)) for(const c of ia.criterios) iaMap[(c.nombre||"").toLowerCase()] = c;
-  let total = ia && typeof ia.total === "number" ? ia.total : null;
+  /* reglas fijas: la IA no puede dar más de lo que permite la revisión automática */
+  const ajustes = {};
+  let total = null;
+  if(ia && Array.isArray(ia.criterios)){
+    total = 0;
+    for(const c of crits){
+      const max = CONFIG.rubrica[c];
+      const k = iaMap[c.toLowerCase()] || iaMap[c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")];
+      if(!k){ continue; }
+      let pts = Math.max(0, Math.min(max, Math.round(Number(k.puntos) || 0)));
+      const orig = pts;
+      const avisos = rev.R[c].filter(x => x.tipo === "warn").length;
+      pts = Math.min(pts, max - 2 * avisos);
+      if(c === "Resultados" && rev.pdfPendientes) pts = Math.min(pts, Math.round(max / 2));
+      if(c !== "Video" && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
+      pts = Math.max(0, pts);
+      if(pts !== orig) ajustes[c] = orig;
+      k.puntos = pts;
+      total += pts;
+    }
+  }
   let html = "";
   if(total !== null){
     const max = crits.reduce((s,c) => s + CONFIG.rubrica[c], 0);
@@ -285,6 +326,7 @@ function render(rev, ia){
     const k = iaMap[c.toLowerCase()] || iaMap[c.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")];
     const pts = k && typeof k.puntos === "number" ? k.puntos : null;
     html += `<div class="crit"><div class="crit-head"><h3>${esc(c)}</h3>${pts !== null ? `<span class="pts" style="color:${color(pts/max)}">${pts} / ${max}</span>` : ""}</div>`;
+    if(pts !== null && ajustes[c] !== undefined) html += `<div class="hint">Ajustado por la revisión automática (el agente había dado ${ajustes[c]}).</div>`;
     if(pts !== null) html += `<div class="bar"><i style="width:${pts/max*100}%;background:${color(pts/max)}"></i></div>`;
     html += `<div class="tag">Revisión automática</div><ul>${rev.R[c].map(x => `<li class="${x.tipo}">${esc(x.msg)}</li>`).join("") || '<li class="ok">Sin observaciones.</li>'}</ul>`;
     if(k){
@@ -338,6 +380,7 @@ $("form").addEventListener("submit", async ev => {
     owner: info.owner, repo: info.repo, branch: info.branch, carpeta: info.path,
     readme: encPath(rev.send.readme), codigo: encPath(rev.send.codigo), imagen: encPath(rev.send.imagen), pdf: encPath(rev.send.pdf),
     video: rev.send.video || "",
+    pdfTexto: rev.pdfTxt.replace(/\s+/g," ").slice(0, 12000),
     revision: Object.entries(rev.R).map(([c, xs]) => c + ": " + xs.map(x => (x.tipo === "ok" ? "[OK] " : x.tipo === "warn" ? "[AVISO] " : "[ERROR] ") + x.msg).join(" | ")).join("\n")
   });
   try{
