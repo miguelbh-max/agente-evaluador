@@ -220,6 +220,7 @@ async function revisar(info, materia){
     const cf = codeFiles[0];
     send.codigo = cf.path;
     const txt = await raw(info, cf.path);
+    send.codigoTxt = txt;
     add("Código","ok",`Archivo de código: ${cf.rel}`);
     let parece = true;
     if(tipo === "SQL") parece = /\b(create|select|insert|update|delete|alter|drop|grant)\b/i.test(txt);
@@ -275,7 +276,7 @@ async function revisar(info, materia){
     }catch(e){ add("Resultados","warn","No se pudo leer el texto del PDF desde la página."); }
   }
 
-  return { R, send, bloqueos, tipo, pdfPendientes, pdfTxt };
+  return { R, send, bloqueos, tipo, pdfPendientes, pdfTxt, readmeTxt };
 }
 
 /* ---------- pintar resultados ---------- */
@@ -375,12 +376,24 @@ $("form").addEventListener("submit", async ev => {
     $("wait").outerHTML = `<div class="card notice warn">La evaluación con IA aún no está configurada (falta el webhook en materias.json).</div>`;
     btn.disabled = false; return;
   }
+  /* límite de evaluaciones con IA por práctica al día (se guarda en este navegador) */
+  const limite = Number(CONFIG.intentosPorDia) || 2;
+  const hoy = new Date().toLocaleDateString("en-CA");
+  const clave = "intentos:" + [info.owner, info.repo, info.path].join("/").toLowerCase() + ":" + hoy;
+  let usados = 0;
+  try{ usados = Number(localStorage.getItem(clave)) || 0; }catch(e){}
+  if(usados >= limite){
+    $("wait").outerHTML = `<div class="card notice warn">Ya usaste tus ${limite} evaluaciones con IA de hoy para esta práctica. Corrige lo que marca la revisión y vuelve a intentarlo mañana. La revisión automática sí la puedes repetir cuando quieras.</div>`;
+    btn.disabled = false; return;
+  }
   const body = new URLSearchParams({
     grupo: $("grupo").value.trim(), alumno: $("alumno").value.trim(), materia, tipo: rev.tipo,
     owner: info.owner, repo: info.repo, branch: info.branch, carpeta: info.path,
     readme: encPath(rev.send.readme), codigo: encPath(rev.send.codigo), imagen: encPath(rev.send.imagen), pdf: encPath(rev.send.pdf),
     video: rev.send.video || "",
     pdfTexto: rev.pdfTxt.replace(/\s+/g," ").slice(0, 12000),
+    readmeTexto: rev.readmeTxt.slice(0, 15000),
+    codigoTexto: (rev.send.codigoTxt || "").slice(0, 20000),
     revision: Object.entries(rev.R).map(([c, xs]) => c + ": " + xs.map(x => (x.tipo === "ok" ? "[OK] " : x.tipo === "warn" ? "[AVISO] " : "[ERROR] ") + x.msg).join(" | ")).join("\n")
   });
   try{
@@ -394,7 +407,10 @@ $("form").addEventListener("submit", async ev => {
       render(rev, null);
       out.insertAdjacentHTML("afterbegin", `<div class="card notice err">No se recibió la evaluación del agente. Revisa que el código de grupo sea correcto e intenta de nuevo.<details><summary>Respuesta recibida</summary><pre>${esc(text.slice(0, 1500))}</pre></details></div>`);
     }else{
+      try{ localStorage.setItem(clave, String(usados + 1)); }catch(e){}
       render(rev, ia);
+      const quedan = limite - usados - 1;
+      out.insertAdjacentHTML("beforeend", `<div class="card hint">${quedan <= 0 ? "Ya usaste tus evaluaciones con IA de hoy para esta práctica." : quedan === 1 ? "Te queda 1 evaluación con IA hoy para esta práctica." : "Te quedan " + quedan + " evaluaciones con IA hoy para esta práctica."}</div>`);
     }
   }catch(e){
     render(rev, null);
