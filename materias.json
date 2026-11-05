@@ -1,5 +1,5 @@
 {
-  "webhook": "PEGA_AQUI_LA_URL_DEL_WEBHOOK_DE_MAKE",
+  "webhook": "https://hook.us2.make.com/uxscvtngsmbrlmyyxd5u3oa5f2sa4lkr",
   "rubrica": {
     "README": 20,
     "Código": 20,
