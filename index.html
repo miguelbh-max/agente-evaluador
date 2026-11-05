@@ -57,7 +57,7 @@
 <body>
 <header><div class="wrap">
   <h1>Autoevaluación de prácticas</h1>
-  <p>Revisa tu práctica de GitHub con la rúbrica del profesor antes de entregarla en Classroom.</p>
+  <p>Revisa tu práctica de GitHub con la rúbrica del profesor antes de entregarla en Moodle.</p>
 </div></header>
 
 <main>
@@ -68,10 +68,12 @@
         <select id="materia" required><option value="">Cargando…</option></select>
       </div>
       <div>
-        <label for="grupo">Código de grupo</label>
-        <input id="grupo" required placeholder="Lo da el profesor en clase" autocomplete="off">
+        <label for="practica">Práctica</label>
+        <select id="practica" required><option value="">Primero elige la materia</option></select>
       </div>
     </div>
+    <label for="grupo">Código de grupo</label>
+    <input id="grupo" required placeholder="Lo da el profesor en clase" autocomplete="off">
     <div class="row">
       <div>
         <label for="alumno">Nombre completo</label>
@@ -130,10 +132,26 @@ async function loadConfig(){
     const sel = $("materia");
     sel.innerHTML = '<option value="">Elige tu materia</option>' +
       Object.keys(CONFIG.materias).map(m => `<option>${esc(m)}</option>`).join("");
+    sel.addEventListener("change", llenarPracticas);
   }catch(e){
     $("materia").innerHTML = '<option value="">Error al cargar materias.json</option>';
   }
   try{ $("grupo").value = localStorage.getItem("grupo") || ""; $("alumno").value = localStorage.getItem("alumno") || ""; $("correo").value = localStorage.getItem("correo") || ""; }catch(e){}
+}
+
+function nombrePractica(p){ return `U${p.unidad} - ${p.nombre}`; }
+function llenarPracticas(){
+  const ps = (CONFIG.materias[$("materia").value] || {}).practicas || [];
+  const sel = $("practica");
+  if(!ps.length){ sel.innerHTML = '<option value="">Primero elige la materia</option>'; return; }
+  const unidades = [...new Set(ps.map(p => p.unidad))].sort((a, b) => a - b);
+  sel.innerHTML = '<option value="">Elige la práctica</option>' + unidades.map(u =>
+    `<optgroup label="Unidad ${esc(u)}">` + ps.filter(p => p.unidad === u)
+      .map(p => `<option value="${esc(nombrePractica(p))}">${esc(p.nombre)}</option>`).join("") + `</optgroup>`).join("");
+}
+function practicaElegida(){
+  const ps = (CONFIG.materias[$("materia").value] || {}).practicas || [];
+  return ps.find(p => nombrePractica(p) === $("practica").value) || null;
 }
 
 /* ---------- GitHub ---------- */
@@ -438,8 +456,9 @@ $("form").addEventListener("submit", async ev => {
   }
   /* límite de evaluaciones con IA por práctica (se guarda en este navegador) */
   const limite = Number(CONFIG.intentosPorPractica || CONFIG.intentosPorDia) || 2;
-  const clave = "intentos:" + [info.owner, info.repo, info.path].join("/").toLowerCase();
-  const claveUltima = "ultima:" + [info.owner, info.repo, info.path].join("/").toLowerCase();
+  const idPractica = [info.owner, info.repo, info.path, $("practica").value].join("/").toLowerCase();
+  const clave = "intentos:" + idPractica;
+  const claveUltima = "ultima:" + idPractica;
   /* si no cambió nada desde la última evaluación, se muestra la misma y no se gasta un intento */
   let ultima = null;
   try{ ultima = JSON.parse(localStorage.getItem(claveUltima) || "null"); }catch(e){}
@@ -467,7 +486,7 @@ $("form").addEventListener("submit", async ev => {
     pdfTexto: rev.pdfTxt.replace(/\s+/g," ").slice(0, 12000),
     readmeTexto: rev.readmeTxt.slice(0, 15000),
     codigoTexto: (rev.send.codigoTxt || "").slice(0, 20000),
-    revision: Object.entries(rev.R).map(([c, xs]) => c + ": " + xs.map(x => (x.tipo === "ok" ? "[OK] " : x.tipo === "warn" ? "[AVISO] " : "[ERROR] ") + x.msg).join(" | ")).join("\n")
+    revision: `PRÁCTICA: ${$("practica").value}` + (practicaElegida()?.notas ? `\nINDICACIONES DE ESTA PRÁCTICA (el README debe cumplirlas): ${practicaElegida().notas}` : "") + "\n" + Object.entries(rev.R).map(([c, xs]) => c + ": " + xs.map(x => (x.tipo === "ok" ? "[OK] " : x.tipo === "warn" ? "[AVISO] " : "[ERROR] ") + x.msg).join(" | ")).join("\n")
   });
   try{
     const ctrl = new AbortController();
@@ -485,7 +504,7 @@ $("form").addEventListener("submit", async ev => {
       /* registro para el profesor (Google Sheets vía Apps Script) */
       if(final && CONFIG.registro && /^https:\/\//.test(CONFIG.registro)){
         fetch(CONFIG.registro, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
-          body: JSON.stringify({ alumno: $("alumno").value.trim(), correo, owner: info.owner, materia, practica: info.path.split("/").pop() || info.repo,
+          body: JSON.stringify({ alumno: $("alumno").value.trim(), correo, owner: info.owner, materia, practica: $("practica").value || info.path.split("/").pop() || info.repo,
             enlace: `https://github.com/${info.owner}/${info.repo}/tree/${info.branch}/${info.path}`, intento: usados + 1, ...final }) }).catch(() => {});
       }
       const quedan = limite - usados - 1;

@@ -54,17 +54,75 @@
   "materias": {
     "Bases de Datos": {
       "codigo": "SQL",
-      "notas": ""
+      "notas": "",
+      "practicas": [
+        {
+          "unidad": 1,
+          "nombre": "P1 Modelo entidad-relación"
+        },
+        {
+          "unidad": 2,
+          "nombre": "P2 Creación de tablas (DDL)"
+        },
+        {
+          "unidad": 3,
+          "nombre": "P3 Consultas con JOIN"
+        }
+      ]
     },
     "Administración de Bases de Datos": {
       "codigo": "SQL",
-      "notas": "Puede incluir scripts de respaldo, usuarios, roles y permisos."
+      "notas": "Puede incluir scripts de respaldo, usuarios, roles y permisos.",
+      "practicas": [
+        {
+          "unidad": 1,
+          "nombre": "P1 Instalación y configuración del SGBD"
+        },
+        {
+          "unidad": 2,
+          "nombre": "P2 Usuarios, roles y permisos"
+        },
+        {
+          "unidad": 3,
+          "nombre": "P3 Respaldo y restauración"
+        }
+      ]
     },
     "Automatización e Integración de Control Inteligente": {
       "codigo": "Arduino",
-      "notas": ""
+      "notas": "",
+      "practicas": [
+        {
+          "unidad": 1,
+          "nombre": "P1 Control de LEDs"
+        },
+        {
+          "unidad": 2,
+          "nombre": "P2 Lectura de sensores"
+        },
+        {
+          "unidad": 3,
+          "nombre": "P3 Control de motores"
+        }
+      ]
     },
-"Desarrollo Sustentable": { "codigo": "Blueprint", "notas": "" }
-    
+    "Desarrollo Sustentable": {
+      "codigo": "Blueprint",
+      "notas": "",
+      "practicas": [
+        {
+          "unidad": 1,
+          "nombre": "P1 Huella de carbono"
+        },
+        {
+          "unidad": 2,
+          "nombre": "P2 Monitoreo ambiental"
+        },
+        {
+          "unidad": 3,
+          "nombre": "P3 Clasificador de residuos con IA"
+        }
+      ]
     }
+  }
 }
