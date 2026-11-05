@@ -72,9 +72,17 @@
         <input id="grupo" required placeholder="Lo da el profesor en clase" autocomplete="off">
       </div>
     </div>
-    <label for="alumno">Nombre completo</label>
-    <input id="alumno" required placeholder="Nombre(s) y apellidos, como aparecen en Classroom">
-    <div class="hint">Escríbelo siempre igual: así el profesor recibe tu calificación.</div>
+    <div class="row">
+      <div>
+        <label for="alumno">Nombre completo</label>
+        <input id="alumno" required placeholder="Nombre(s) y apellidos">
+      </div>
+      <div>
+        <label for="correo">Correo institucional</label>
+        <input id="correo" type="email" required placeholder="tu correo @mazatlan.tecnm.mx" autocomplete="email">
+      </div>
+    </div>
+    <div class="hint">Con tu correo institucional el profesor pasa tu calificación a Moodle. Escríbelo bien.</div>
     <label for="url">Enlace de la carpeta de tu práctica en GitHub</label>
     <input id="url" required placeholder="https://github.com/usuario/repositorio/tree/main/CARPETA-PRACTICA">
     <div class="hint">Abre la carpeta de la práctica en GitHub y copia el enlace de la barra del navegador. El repositorio debe ser público.</div>
@@ -125,7 +133,7 @@ async function loadConfig(){
   }catch(e){
     $("materia").innerHTML = '<option value="">Error al cargar materias.json</option>';
   }
-  try{ $("grupo").value = localStorage.getItem("grupo") || ""; $("alumno").value = localStorage.getItem("alumno") || ""; }catch(e){}
+  try{ $("grupo").value = localStorage.getItem("grupo") || ""; $("alumno").value = localStorage.getItem("alumno") || ""; $("correo").value = localStorage.getItem("correo") || ""; }catch(e){}
 }
 
 /* ---------- GitHub ---------- */
@@ -401,9 +409,12 @@ $("form").addEventListener("submit", async ev => {
   const btn = $("btn");
   const materia = $("materia").value;
   const info = parseUrl($("url").value);
-  if($("alumno").value.trim().split(/\s+/).length < 3){ out.innerHTML = `<div class="card notice err">Escribe tu nombre completo: nombre(s) y apellidos.</div>`; return; }
+  if($("alumno").value.trim().split(/\s+/).length < 2){ out.innerHTML = `<div class="card notice err">Escribe tu nombre completo: nombre(s) y apellidos.</div>`; return; }
+  const dominio = String(CONFIG.dominioCorreo || "mazatlan.tecnm.mx").toLowerCase();
+  const correo = $("correo").value.trim().toLowerCase();
+  if(!new RegExp("^[^@\\s]+@" + dominio.replace(/\./g, "\\.") + "$").test(correo)){ out.innerHTML = `<div class="card notice err">Escribe tu correo institucional, el que termina en <b>@${esc(dominio)}</b>.</div>`; return; }
   if(!info){ out.innerHTML = `<div class="card notice err">El enlace no parece de GitHub. Debe verse como <code>https://github.com/usuario/repositorio/tree/main/CARPETA</code>.</div>`; return; }
-  try{ localStorage.setItem("grupo", $("grupo").value.trim()); localStorage.setItem("alumno", $("alumno").value.trim()); }catch(e){}
+  try{ localStorage.setItem("grupo", $("grupo").value.trim()); localStorage.setItem("alumno", $("alumno").value.trim()); localStorage.setItem("correo", correo); }catch(e){}
   btn.disabled = true;
   out.innerHTML = `<div class="card status"><div class="spin"></div>Revisando la estructura de tu carpeta…</div>`;
   let rev;
@@ -474,7 +485,7 @@ $("form").addEventListener("submit", async ev => {
       /* registro para el profesor (Google Sheets vía Apps Script) */
       if(final && CONFIG.registro && /^https:\/\//.test(CONFIG.registro)){
         fetch(CONFIG.registro, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" },
-          body: JSON.stringify({ alumno: $("alumno").value.trim(), owner: info.owner, materia, practica: info.path.split("/").pop() || info.repo,
+          body: JSON.stringify({ alumno: $("alumno").value.trim(), correo, owner: info.owner, materia, practica: info.path.split("/").pop() || info.repo,
             enlace: `https://github.com/${info.owner}/${info.repo}/tree/${info.branch}/${info.path}`, intento: usados + 1, ...final }) }).catch(() => {});
       }
       const quedan = limite - usados - 1;
