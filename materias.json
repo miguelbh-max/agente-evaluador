@@ -16,9 +16,10 @@
       "codigo": "SQL",
       "notas": "Puede incluir scripts de respaldo, usuarios, roles y permisos."
     },
-    "Automatización e Integración de Control Inteligente": {
+   "Automatización e Integración de Control Inteligente": {
       "codigo": "Arduino",
       "notas": ""
-    }
+    },
+    "Desarrollo Sustentable": { "codigo": "Blueprint", "notas": "" }
   }
 }
