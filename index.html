@@ -107,6 +107,7 @@ const CODE_PREF = {
   "Blueprint": ["json","txt"],
   "Python": ["py","txt","ipynb"]
 };
+const SOLO_EXISTE = ["Código", "Imágenes", "Video"];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ext = p => (p.split(".").pop() || "").toLowerCase();
 const base = p => p.split("/").pop();
@@ -163,6 +164,22 @@ async function pdfTexto(info, path){
     t += c.items.map(x => x.str).join(" ") + "\n";
   }
   return t;
+}
+
+function ytId(u){
+  const m = u.match(/(?:v=|youtu\.be\/|shorts\/|live\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+function videoExiste(u){
+  const id = ytId(u);
+  if(!id) return Promise.resolve(false);
+  return new Promise(res => {
+    const img = new Image();
+    const t = setTimeout(() => res(null), 8000);
+    img.onload = () => { clearTimeout(t); res(img.naturalWidth > 120); };   /* YouTube devuelve una miniatura gris de 120 px si el video no existe */
+    img.onerror = () => { clearTimeout(t); res(false); };
+    img.src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  });
 }
 
 /* ---------- revisión automática ---------- */
@@ -252,6 +269,9 @@ async function revisar(info, materia){
   for(const f of vtxt){ const t = await raw(info, f.path); const m = t.match(yt); if(m){ vurl = m[0]; vfile = f; break; } }
   if(vurl){
     send.video = vurl;
+    const existe = await videoExiste(vurl);
+    if(existe === false) add("Video","err","El video de YouTube no existe, es privado o el enlace está mal copiado. Ábrelo en una ventana de incógnito para comprobarlo.");
+    else if(existe === null) add("Video","warn","No se pudo comprobar en YouTube que el video exista; revísalo tú.");
     add("Video","ok",`Enlace de YouTube válido en ${vfile.rel}.`);
   }else{
     const m = readmeTxt.match(yt);
@@ -300,12 +320,14 @@ function render(rev, ia){
       const avisos = rev.R[c].filter(x => x.tipo === "warn").length;
       pts = Math.min(pts, max - 2 * avisos);
       if(c === "Resultados" && rev.pdfPendientes) pts = Math.min(pts, Math.round(max / 2));
-      if(c !== "Video" && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
-      /* Video: solo se califica que el enlace de YouTube sea válido */
-      if(c === "Video"){
-        const ok = rev.R.Video.some(x => x.tipo === "ok") && !rev.R.Video.some(x => x.tipo !== "ok");
-        pts = ok ? max : Math.min(pts, max - 2 * avisos);
-        if(ok){ k.corregir = []; k.bien = ["Enlace de YouTube válido. El profesor revisará que el video muestre la prueba en vivo."]; }
+      if(!SOLO_EXISTE.includes(c) && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
+      /* Código, Imágenes y Video: si existen y la revisión automática está en verde, valen el máximo.
+         Lo que diga la IA se muestra como sugerencia y no resta. */
+      if(SOLO_EXISTE.includes(c)){
+        const ok = rev.R[c].some(x => x.tipo === "ok") && !rev.R[c].some(x => x.tipo !== "ok");
+        if(ok){ pts = max; k.sugerencias = k.corregir || []; k.corregir = []; }
+        if(ok && c === "Video") k.bien = ["Enlace de YouTube válido. El profesor revisará que el video muestre la prueba en vivo."];
+        if(ok && c === "Video") k.sugerencias = [];
       }
       pts = Math.max(0, pts);
       if(pts !== orig) ajustes[c] = orig;
@@ -339,6 +361,7 @@ function render(rev, ia){
     if(k){
       if(k.bien?.length) html += `<div class="tag">Bien hecho</div><ul>${k.bien.map(x => `<li class="ok">${esc(x)}</li>`).join("")}</ul>`;
       if(k.corregir?.length) html += `<div class="tag">Qué corregir</div><ul>${k.corregir.map(x => `<li class="fix">${esc(x)}</li>`).join("")}</ul>`;
+      if(k.sugerencias?.length) html += `<div class="tag">Sugerencias (no restan puntos)</div><ul>${k.sugerencias.map(x => `<li class="fix">${esc(x)}</li>`).join("")}</ul>`;
     }
     html += `</div>`;
   }
@@ -382,14 +405,18 @@ $("form").addEventListener("submit", async ev => {
     $("wait").outerHTML = `<div class="card notice warn">La evaluación con IA aún no está configurada (falta el webhook en materias.json).</div>`;
     btn.disabled = false; return;
   }
-  /* límite de evaluaciones con IA por práctica al día (se guarda en este navegador) */
-  const limite = Number(CONFIG.intentosPorDia) || 2;
-  const hoy = new Date().toLocaleDateString("en-CA");
-  const clave = "intentos:" + [info.owner, info.repo, info.path].join("/").toLowerCase() + ":" + hoy;
+  /* límite de evaluaciones con IA por práctica (se guarda en este navegador) */
+  const limite = Number(CONFIG.intentosPorPractica || CONFIG.intentosPorDia) || 2;
+  const clave = "intentos:" + [info.owner, info.repo, info.path].join("/").toLowerCase();
   let usados = 0;
   try{ usados = Number(localStorage.getItem(clave)) || 0; }catch(e){}
   if(usados >= limite){
-    $("wait").outerHTML = `<div class="card notice warn">Ya usaste tus ${limite} evaluaciones con IA de hoy para esta práctica. Corrige lo que marca la revisión y vuelve a intentarlo mañana. La revisión automática sí la puedes repetir cuando quieras.</div>`;
+    $("wait").outerHTML = `<div class="card notice warn">Ya usaste tus ${limite} evaluaciones con IA para esta práctica. La revisión automática sí la puedes repetir cuando quieras.</div>`;
+    btn.disabled = false; return;
+  }
+  const avisos = Object.values(rev.R).flat().filter(x => x.tipo === "warn").length;
+  if(avisos && !confirm(`La revisión automática encontró ${avisos} aviso(s) ⚠ pendiente(s).\n\nTe quedan ${limite - usados} evaluación(es) con IA para esta práctica.\n\n¿Quieres usar una ahora? (Cancelar = corregir primero)`)){
+    $("wait").outerHTML = `<div class="card notice warn">Corrige los avisos ⚠ y vuelve a evaluar. No se usó ninguna evaluación con IA.</div>`;
     btn.disabled = false; return;
   }
   const body = new URLSearchParams({
@@ -416,7 +443,7 @@ $("form").addEventListener("submit", async ev => {
       try{ localStorage.setItem(clave, String(usados + 1)); }catch(e){}
       render(rev, ia);
       const quedan = limite - usados - 1;
-      out.insertAdjacentHTML("beforeend", `<div class="card hint">${quedan <= 0 ? "Ya usaste tus evaluaciones con IA de hoy para esta práctica." : quedan === 1 ? "Te queda 1 evaluación con IA hoy para esta práctica." : "Te quedan " + quedan + " evaluaciones con IA hoy para esta práctica."}</div>`);
+      out.insertAdjacentHTML("beforeend", `<div class="card hint">${quedan <= 0 ? "Ya usaste todas tus evaluaciones con IA para esta práctica." : quedan === 1 ? "Te queda 1 evaluación con IA para esta práctica." : "Te quedan " + quedan + " evaluaciones con IA para esta práctica."}</div>`);
     }
   }catch(e){
     render(rev, null);
