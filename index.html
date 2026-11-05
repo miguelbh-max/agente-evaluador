@@ -301,6 +301,12 @@ function render(rev, ia){
       pts = Math.min(pts, max - 2 * avisos);
       if(c === "Resultados" && rev.pdfPendientes) pts = Math.min(pts, Math.round(max / 2));
       if(c !== "Video" && Array.isArray(k.corregir) && k.corregir.length && pts === max) pts = max - 2;
+      /* Video: solo se califica que el enlace de YouTube sea válido */
+      if(c === "Video"){
+        const ok = rev.R.Video.some(x => x.tipo === "ok") && !rev.R.Video.some(x => x.tipo !== "ok");
+        pts = ok ? max : Math.min(pts, max - 2 * avisos);
+        if(ok){ k.corregir = []; k.bien = ["Enlace de YouTube válido. El profesor revisará que el video muestre la prueba en vivo."]; }
+      }
       pts = Math.max(0, pts);
       if(pts !== orig) ajustes[c] = orig;
       k.puntos = pts;
